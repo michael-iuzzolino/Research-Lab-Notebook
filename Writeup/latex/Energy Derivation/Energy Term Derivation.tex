@@ -1,0 +1,152 @@
+\documentclass[11pt,letterpaper]{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pagestyle{plain}                                                      %%
+%%%%%%%%%% EXACT 1in MARGINS %%%%%%%                                   %%
+\setlength{\textwidth}{6.5in}     %%                                   %%
+\setlength{\oddsidemargin}{0in}   %% (It is recommended that you       %%
+\setlength{\evensidemargin}{0in}  %%  not change these parameters,     %%
+\setlength{\textheight}{8.5in}    %%  at the risk of having your       %%
+\setlength{\topmargin}{0in}       %%  proposal dismissed on the basis  %%
+\setlength{\headheight}{0in}      %%  of incorrect formatting!!!)      %%
+\setlength{\headsep}{0in}         %%                                   %%
+\setlength{\footskip}{.5in}       %%                                   %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                                   %%
+\newcommand{\required}[1]{\section*{\hfil #1\hfil}}                    %%
+
+
+\usepackage{tikz}
+\usepackage{pgf}
+\usetikzlibrary{arrows,automata}
+
+\usepackage{titlesec}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage[rightcaption]{sidecap}
+\usepackage{dsfont}
+%\usepackage{nopageno}
+
+\usepackage{hyperref}
+\usepackage{times}
+\usepackage{graphicx} % more modern
+%\usepackage{epsfig} % less modern
+\usepackage{subfigure} 
+\usepackage{url}
+\usepackage{epstopdf}
+\usepackage{amsfonts}
+%\usepackage{caption}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb} % define this before the lin numbering.
+%\usepackage{ruler}
+%\usepackage{subfigure}
+% \usepackage{color}
+\usepackage{bm}
+
+\newcommand{\sto}{{\ensuremath{\scriptscriptstyle G}}}
+\newcommand{\out}{{\ensuremath{\scriptscriptstyle O}}}
+\newcommand{\evt}{{\ensuremath{\scriptscriptstyle F}}}
+\newcommand{\bfeat}{{\ensuremath{\bm{f}}}}
+\newcommand{\by}{{\ensuremath{\bm{y}}}}
+\newcommand{\bW}{{\ensuremath{\bm{W}}}}
+\newcommand{\bU}{{\ensuremath{\bm{U}}}}
+\newcommand{\bV}{{\ensuremath{\bm{V}}}}
+\newcommand{\bh}{{\ensuremath{\bm{h}}}}
+\newcommand{\bhhat}{{\ensuremath{\hat{\bm{h}}}}}
+\newcommand{\bx}{{\ensuremath{\bm{x}}}}
+\newcommand{\bg}{{\ensuremath{\bm{g}}}}
+\newcommand{\bb}{{\ensuremath{\bm{b}}}}
+\newcommand{\T}{{\ensuremath{\mathrm{T}}}}
+\newcommand{\diag}{{\ensuremath{\mathrm{diag}}}}
+\newcommand{\arctanh}{{\ensuremath{\mathrm{arctanh}}}}
+
+
+\usepackage{amsthm}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{lemma}[theorem]{Lemma}
+
+\newcommand{\yhat}{\hat{y}}
+\newcommand{\highlight}[2]{\textcolor{#1}{#2}}
+
+% https://tex.stackexchange.com/questions/42726/align-but-show-one-equation-number-at-the-end
+\newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}} 
+
+\renewcommand{\vec}[1]{{\boldsymbol #1}}
+\setcounter{secnumdepth}{1}
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}[display]{\normalfont\bfseries\large}{}{}{}
+\titlespacing{\section}{0pt}{13pt}{6.5pt}
+\titlespacing{\subsection}{0pt}{11pt}{5.5pt}
+
+\let\oldbibliography\thebibliography
+\renewcommand{\thebibliography}[1]{%
+  \oldbibliography{#1}%
+  \setlength{\itemsep}{0pt}%
+}
+
+\begin{document}
+
+\begin{center}
+
+{\Large \textbf{Derivation of Energy Expression Terms}}
+
+\vspace{1em}
+Michael Iuzzolino
+%Department of Computer Science \\
+%University of Colorado \\
+%Boulder, CO 80309-0430 USA \\
+%{\tt \{mozer,kazakov\}@colorado.edu}
+
+\end{center}
+
+\section{Energy Functions and Activation Dynamics}
+An attractor net is characterized by an energy or Lyapunov function (Koiran, 1994):
+\begin{equation}
+E_i = -\frac{1}{2}x_i W x_i^{\T} - bx_i^{\T} + \sum_j \int_0^{x_{ij}} f^{-1}(\xi) d \xi,
+\end{equation}
+where $x_i$ is the network state at some iteration $i$, $j$ is an index over units in the net, and $f(\cdot)$ is the activation function. With $f \equiv \tanh$, we have:
+\begin{equation}
+E_i = -\frac{1}{2}x_i W x_i^{\T} - bx_i^{\T} + \sum_j x_{ij} \arctanh(x_{ij}) + \frac{1}{2} \ln(1 - x_{ij}^2)
+\end{equation}
+
+\subsection{Derivation}
+The aim is to show the following:
+\[
+\int_0^{x_{ij}} \tanh^{-1}(\xi) d \xi \equiv  x_{ij}\arctanh(x_{ij}) + \frac{1}{2} \ln(1 - x_{ij}^2)
+\]
+
+Beginning with $\int_0^{x_{ij}} \tanh^{-1}(\xi) d \xi$, we integrate by parts, where $\int u dv = uv - \int v du$.\\
+
+Let $u = \tanh^{-1}(\xi)$ and $dv = d \xi$. Then,
+\begin{alignat*}{3}
+u &= \tanh^{-1}(\xi) \qquad && v &&= \xi \\
+du &= \frac{1}{1 - \xi^2} d \xi \qquad && dv &&= d\xi\\
+\end{alignat*}
+
+Following $\int u dv = uv - \int v du$,
+\begin{equation}
+\xi \tanh^{-1}(\xi) \bigg\rvert_0^x - \int_0^x \frac{\xi}{1-\xi^2}d \xi
+\label{eq:byparts}
+\end{equation}
+
+Now we make a substitution: $u = 1-\xi^2 \Rightarrow \xi = \sqrt{1 - u}$. Then $du = -2\xi d\xi \Rightarrow d\xi = \frac{du}{-2\sqrt{1-u}}$. 
+
+Evaluating the first term of Eq. \ref{eq:byparts} and making the above substitution into the second term of Eq. \ref{eq:byparts} (along with algebraic simplifications and readjustment of integration bounds), we achieve:
+\[
+x \tanh^{-1}(x)  + \frac{1}{2} \int_1^{1-x^2} \frac{1}{u} du
+\]
+
+Since $\int du / u = ln(u) + C$, 
+\[
+x \tanh^{-1}(x)  + \frac{1}{2} \ln(u) \bigg\rvert_1^{1-x^2} = x \tanh^{-1}(x)  + \frac{1}{2} \left[ \ln(1-x^2) - \ln(1) \right]
+\]
+
+Finally,
+\[
+\int_0^{x_{ij}} \tanh^{-1}(\xi) d \xi = x \tanh^{-1}(x)  + \frac{1}{2} \ln ( 1 - x^2) 
+\qed
+\]
+\end{document}

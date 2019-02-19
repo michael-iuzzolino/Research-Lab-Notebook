@@ -1,0 +1,373 @@
+\documentclass[11pt,letterpaper]{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pagestyle{plain}                                                      %%
+%%%%%%%%%% EXACT 1in MARGINS %%%%%%%                                   %%
+\setlength{\textwidth}{6.5in}     %%                                   %%
+\setlength{\oddsidemargin}{0in}   %% (It is recommended that you       %%
+\setlength{\evensidemargin}{0in}  %%  not change these parameters,     %%
+\setlength{\textheight}{8.5in}    %%  at the risk of having your       %%
+\setlength{\topmargin}{0in}       %%  proposal dismissed on the basis  %%
+\setlength{\headheight}{0in}      %%  of incorrect formatting!!!)      %%
+\setlength{\headsep}{0in}         %%                                   %%
+\setlength{\footskip}{.5in}       %%                                   %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                                   %%
+\newcommand{\required}[1]{\section*{\hfil #1\hfil}}                    %%
+
+
+\usepackage{titlesec}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage[rightcaption]{sidecap}
+\usepackage{dsfont}
+%\usepackage{nopageno}
+
+\usepackage{hyperref}
+\usepackage{times}
+\usepackage{graphicx} % more modern
+%\usepackage{epsfig} % less modern
+\usepackage{subfigure} 
+\usepackage{url}
+\usepackage{epstopdf}
+\usepackage{amsfonts}
+%\usepackage{caption}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb} % define this before the lin numbering.
+%\usepackage{ruler}
+%\usepackage{subfigure}
+% \usepackage{color}
+\usepackage{bm}
+
+\newcommand{\sto}{{\ensuremath{\scriptscriptstyle G}}}
+\newcommand{\out}{{\ensuremath{\scriptscriptstyle O}}}
+\newcommand{\evt}{{\ensuremath{\scriptscriptstyle F}}}
+\newcommand{\bfeat}{{\ensuremath{\bm{f}}}}
+\newcommand{\by}{{\ensuremath{\bm{y}}}}
+\newcommand{\bW}{{\ensuremath{\bm{W}}}}
+\newcommand{\bU}{{\ensuremath{\bm{U}}}}
+\newcommand{\bV}{{\ensuremath{\bm{V}}}}
+\newcommand{\bh}{{\ensuremath{\bm{h}}}}
+\newcommand{\bhhat}{{\ensuremath{\hat{\bm{h}}}}}
+\newcommand{\bx}{{\ensuremath{\bm{x}}}}
+\newcommand{\bg}{{\ensuremath{\bm{g}}}}
+\newcommand{\bb}{{\ensuremath{\bm{b}}}}
+\newcommand{\T}{{\ensuremath{\mathrm{T}}}}
+\newcommand{\diag}{{\ensuremath{\mathrm{diag}}}}
+
+
+\renewcommand{\vec}[1]{{\boldsymbol #1}}
+\setcounter{secnumdepth}{0}
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}[display]{\normalfont\bfseries\large}{}{}{}
+\titlespacing{\section}{0pt}{13pt}{6.5pt}
+\titlespacing{\subsection}{0pt}{11pt}{5.5pt}
+
+\let\oldbibliography\thebibliography
+\renewcommand{\thebibliography}[1]{%
+  \oldbibliography{#1}%
+  \setlength{\itemsep}{0pt}%
+}
+
+\begin{document}
+
+\begin{center}
+
+{\Large \textbf{Notes on convolutional attractor nets}}
+
+\vspace{1em}
+Michael C. Mozer
+%Department of Computer Science \\
+%University of Colorado \\
+%Boulder, CO 80309-0430 USA \\
+%{\tt \{mozer,kazakov\}@colorado.edu}
+
+\end{center}
+
+
+%\begin{abstract}
+%HERE IS MY ABSTRACT
+%\end{abstract}
+
+\section{Training an attractor net}
+
+An attractor net is a recurrent net that will converge to a fixed point
+(or a limit cycle of 2 steps). To train any recurrent net, we can unfold
+the net in time to obtain a feedforward net in which each slab is
+the full network state at some iteration $i$.  (The full state will
+consist of the activation of all units in the complete attractor net, even
+if it has a layered structure.)
+
+When the net runs, its state will change each iteration, but gradually 
+converge on the fixed point. (I don't believe we'll ever see the limit
+cycle of 2 steps when we run an architecture whose units are strictly
+layered and there is no connectivity within a layer. However, we should
+still detect when a limit cycle of 2 is reached, so that we can be
+aware that it's a possibility.)
+
+Let's specify some arbitrary threshold that determines whether the net has 
+converged: if $x_i$ denotes the complete state vector at iteration $i$, 
+we'll define converge to have (approximately) occurred 
+when 
+\[
+||x_i~-~x_{i-1}||_\infty<\theta
+\] 
+(the largest 
+change in any unit's activation is less than $\theta$). We can define
+$c$ to be the first step at which convergence is reached.  Then, for all
+$i > c$, $x_i \approx x_c$. We will denote the converged state as $x_*$.
+
+We can now run the net for $t$ iterations, with $t >> c$.  This divides the
+dynamics into a \emph{transient} phase for $1\le i<c$ and a \emph{stationary}
+phase for $c \le i \le t$.
+
+At step $t$ we can define an error which is the difference
+between the target state $y$ and the actual state $x_t$:
+\[
+E_t = || m \circ (x_t - y) ||^2
+\]
+where $m$ is a mask that has 1's for the elements of $x$ that are visible,
+and $y$ has arbitrary values for non-visible elements, and $\circ$ is
+the Hadamard (element-wise) product.
+
+We will use backpropagation to compute $\partial E_t / \partial W$ where
+$W$ is the weight matrix mapping upward, i.e., the net input to iteration
+$i+1$ is 
+\[
+z_{i+1} = x_i W
+\]
+and we will assume a tanh activation function:
+\[
+x_{i+1} = \mathrm{tanh} (z_{i+1}) .
+\]
+
+Because the weights have been copied when we unfold, we need to consider
+the contribution of the weights at each iteration $j<t$ to $E_t$:
+\begin{equation}
+\frac{\partial E_t}{\partial W} = \sum_{j=1}^t 
+\frac{\partial E}{\partial W_j} ,
+\label{eq:dedw}
+\end{equation}
+where $W_j$ is the instantiation of the weights at iteration $j$:
+\begin{equation}
+\frac{\partial E_t}{\partial W_j} = 
+x_{j-1}^{\T}\frac{\partial E_t}{\partial z_j}  .
+\label{eq:dedwj}
+\end{equation}
+(This says that the derivative of a particular weight $w_{ab}$ instantiated
+at iteration $j$ is the product
+of the derivative of the error with respect to unit $b$ at iteration $j$
+and the activation of unit $a$ at iteration $j-1$.)
+
+So now the problem is to compute $\partial E_t / \partial z_j$. We know that
+for $t=j$, we have
+\[
+\frac{\partial E_t}{\partial z_t} = 2 (x_t - y) \circ m .
+\]
+Then we can define derivatives recursively:
+\[
+\frac{\partial E_t}{\partial z_{j-1}} 
+   = \frac{\partial E_t}{\partial z_j} 
+     \frac{\partial z_j}{\partial z_{j-1}}
+   = \frac{\partial E_t}{\partial z_j} 
+     W^{\T}
+     \frac{\partial x_{j-1}}{\partial z_{j-1}} 
+   = \frac{\partial E_t}{\partial z_j} 
+     W^{\T} ~\diag(1-x_{j-1}^2) .
+\]
+(The diagonal matrix is the derivative of a layer's output with respect to
+its net input. This derivative goes to zero as activations approach the limits
+of $+1$ or $-1$.)
+
+Given that the net has converged at iteration $j > c$, we replace $x_j$ with
+$x_*$, leading to the general formulation:
+\begin{equation}
+\frac{\partial E_t}{\partial z_j} = 
+\frac{\partial E_t}{\partial z_t}  
+\left[ W^{\T} ~\diag (1-x_*^2)  \right] ^{t-j}
+\label{eq:dedz}
+\end{equation}
+
+Combining Equations~\ref{eq:dedw}, \ref{eq:dedwj}, and \ref{eq:dedz}, we can express the error derivative over
+the stable period as a power series:
+\[
+\frac{\partial E_t}{\partial W} = 
+x_*^{\T}
+\frac{\partial E_t}{\partial z_t}  
+\sum_{j=c}^t 
+\left[ W^{\T} ~\diag(1-x_*^2) \right] ^{t-j} .
+\]
+
+The Pineda/Almeida algorithm for recurrent nets
+assumes $t \to \infty$ such that the power series becomes infinite, and then
+under some conditions on $W$ (which I think will be satisfied for us because of symmetry and the derivative term), the power series can be found by a matrix 
+inverse. The Pineda/Almeida algorithm uses a back prop like formulation to
+compute the matrix inverse, as described in the Liao (2018) paper on 
+"revisiting recurrent back propagation".
+
+One thing to note is that because $\frac{\partial E_t}{\partial W} =
+\frac{\partial E_{t-1}}{\partial W} $ as $t\to\infty$,
+the derivative direction doesn't change whether we inject error
+only at the final step $t$ or at every step $j$, $c \le j \le t$. 
+Consequently, using temporal-difference learning will have no effect during
+the stationary phase of activation.
+However, temporal-difference learning will
+matter during the transient phase.
+
+
+\section{Symmetry constraints}
+
+In an attractor net, if there is a connection from some unit $\alpha$ to
+some unit $\beta$, denoted $w_{\alpha,\beta}$, we must have symmetry:
+\[
+w_{\alpha,\beta} = w_{\beta,\alpha} .
+\]
+In a fully connected pool of units, this constraint simply implies symmetry
+of the full weight matrix $W$.
+
+Our challenge is to determine a set of symmetry constraints on an architecture 
+with units arranged in a lattice and with restricted connectivity, specifically
+a convolutional layer. We address  two cases: 
+(2) we have a single convolutional layer with internal recurrent connectivity
+that follows the local connectivity constraints of a convolutional net.
+(1) we have two convolutional 
+layers which have connections between layers but no connectivity within a layer.
+
+\subsection{Case 1: Interconnectivity within a recurrent convolutional layer}
+
+Our convolutional layer is a lattice of dimensions
+$n_f \times n_x \times n_y$, where 
+$n_f$ is the number of filters,
+$n_x$ is the horizontal spatial extent,  and
+$n_y$ is the vertical spatial extent.
+We will build a recurrent network which, when unfolded in time, will map from
+this layer to a layer with the
+same dimensionality via a convolutional operator with patch size
+$n_f \times (2n_r+1) \times (2n_r+1)$, where $n_r$ is the radius of the patch.
+The recurrent mapping will be determined by a set of weights, 
+$W = \{ w_{efab} \}$, where $w_{efab}$ refers to the connection feeding into
+unit $(x,y,f)$ from unit $(x+a,y+b,e)$, for every $x$ and $y$ on the lattice.
+$W$ has dimensionality $n_f \times n_f \times (2n_r+1) \times (2n_r+1)$.
+To simplify notation without any loss of generality, we will assume $x=y=0$.
+
+If $w_{efab}$ specifies the connection $(a,b,e) \to (0,0,f)$, then we require 
+this weight to be symmetric with the connection $(0,0,f)\to(a,b,e)$,
+or by normalizing with a constant offset, $(-a,-b,f)\to (0,0,e)$, i.e., 
+\[
+w_{e,f,a,b} = w_{f,e,-a,-b}.
+\]
+Our challenge is how to efficiently enforce this constraint, or how
+to express the underlying parameters and how they map to $W$. 
+
+Remember, we also need to enforce the self-connection constraint $w_{f,f,0,0}\ge0$ for all $f$.
+
+\subsubsection{An approach using numpy}
+
+Starting with a simple example, suppose we have a two-dimensional weight
+array $Z$, and we want to ensure that $Z$ satisfies $z_{a,b}=z_{-a,-b}$.
+(I am using the indexing scheme from the previous section where the indices
+range from $-n_r$ to $+n_r$.) The constraint specifies that the $(+,+)$ quadrant
+mirrors the $(-,-)$ quadrant, and the $(+,-)$ quadrant mirrors the
+$(-,+)$ quadrant.  One way to guarantee that $Z$ has the desired property is
+to define $Z0$ as an unconstrained array, and then to define $Z$ using
+the {\tt numpy} expression:
+\begin{verbatim}
+      Z = (Z0 + Z0[::-1,::-1])/2.0
+\end{verbatim}
+
+For $W$, we want to do something similar: define an unconstrained $W0$ and
+then sum the $W_{f,e,a,b}$ and $W_{e,f,-a,-b}$ to symmetrize:
+\begin{verbatim}
+      W = (W0 + np.swapaxes(W0[:,:,::-1,::-1],0,1))/2.0
+\end{verbatim}
+
+\newpage
+Here is an example of how this works:
+\begin{verbatim}
+      >>> W0=np.random.random([2,2,3,3])*2.0-1.0
+      array([[[[-0.50707783,  0.88680495,  0.99713658],
+               [-0.61545061,  0.23018124, -0.44635288],
+               [ 0.34563401,  0.64314837, -0.39077811]],
+
+              [[ 0.51212478, -0.11878099,  0.70312206],
+               [ 0.13932228,  0.34936946,  0.72935749],
+               [ 0.16512938,  0.25552298,  0.41256676]]],
+
+
+             [[[-0.78205692,  0.55854117,  0.62183324],
+               [-0.16264486,  0.22754876, -0.74926053],
+               [-0.8973259 ,  0.97267335,  0.71312325]],
+
+              [[-0.82456146,  0.29473738, -0.66902053],
+               [ 0.92127547, -0.64778669,  0.03054832],
+               [-0.97555256,  0.62103307,  0.42283626]]]])
+
+      >>> W=(W0+np.swapaxes(W0[:,:,::-1,::-1],0,1))/2.0
+      array([[[[-0.44892797,  0.76497666,  0.67138529],
+               [-0.53090174,  0.23018124, -0.53090174],
+               [ 0.67138529,  0.76497666, -0.44892797]],
+
+              [[ 0.61262402,  0.42694618, -0.09710192],
+               [-0.30496912,  0.28845911,  0.28335632],
+               [ 0.39348131,  0.40703208, -0.18474508]]],
+
+
+             [[[-0.18474508,  0.40703208,  0.39348131],
+               [ 0.28335632,  0.28845911, -0.30496912],
+               [-0.09710192,  0.42694618,  0.61262402]],
+
+              [[-0.2008626 ,  0.45788523, -0.82228654],
+               [ 0.47591189, -0.64778669,  0.47591189],
+               [-0.82228654,  0.45788523, -0.2008626 ]]]])
+\end{verbatim}
+Note that the {\tt W[0,1,:,:]} and {\tt W[1,0,:,:]} matrices are up-down, 
+left-right flipped versions of one another, and note that {\tt W[0,0,:,:]} and 
+{\tt W[1,1,:,:]} are symmetric around both diagonals.  The only constraint 
+that is not guaranteed here is that the self-connections {\tt W[0,0,1,1]} and 
+{\tt W[1,1,1,1]} are not guaranteed to be positive. In {\tt numpy}, you can
+do this with
+\begin{verbatim}
+      for i in range(0,2):
+          W[i,i,1,1] = np.abs(W[i,i,1,1])
+      \end{verbatim}
+
+
+
+\subsection{Case 2: Interconnectivity between convolutional layers}
+
+This case covers the bipartite nets we are currently building, with
+a series of layers within the net and connectivity between layers but
+not within a layer.
+
+Consider two convolutional layers each with a horizontal spatial extent
+of $n_x$ and a vertical spatial extent of $n_y$.
+The lower layer has $n_f$ filters and the upper layer has $n_g$ filters.
+We will build a recurrent network that connects the lower layer to the upper
+and vice versa.  Let $W^{\mathrm{up}} = \{ w_{fgab}^{\mathrm{up}} \}$ be the 
+connectivity from from the lower layer to the upper layer, 
+where $w_{fgab}^{\mathrm{up}}$ refers to the connection feeding into
+unit $(x,y,g)$ in the upper layer from unit $(x+a,y+b,f)$ in the lower layer.
+We can also define the weight matrix from the upper to lower layer:
+$W^{\mathrm{down}} = \{ w_{gfab}^{\mathrm{down}} \}$ be the 
+connectivity from from the upper to lower layer,
+where $w_{gfab}^{\mathrm{down}}$ refers to the connection feeding into
+unit $(x,y,f)$ in the lower layer from unit $(x+a,y+b,g)$ in the upper layer.
+
+$W^\mathrm{up}$  is a fully unconstrained matrix of dimensions $n_f \times n_g
+\times (2 n_r + 1) \times (2 n_r + 1)$, where $n_r$ is the radius of a patch.
+$W^\mathrm{down}$ has dimensions $n_g \times n_f \times (2 n_r + 1) \times (2 n_r +
+1)$ and is fully specified by $W^\mathrm{up}$:
+\[
+w_{g,f,-a,-b}^{\mathrm{down}} = w_{f,g,a,b}^{\mathrm{up}} 
+\]
+
+As Michael Iuzzolino has determined, this constraint is easily implemented
+by transposing the first two dimensions of $W^\mathrm{up}$ and flipping the
+indices of the last two dimensions  to obtain $W^\mathrm{down}$.
+
+
+%\bibliographystyle{apa}
+\small
+%\bibliography{bibliography}
+
+\end{document}
